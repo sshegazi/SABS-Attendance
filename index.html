@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PSAU | Smart Attendance Dashboard</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, sans-serif; background-color: #f4f7f9; margin: 0; padding: 40px; display: flex; justify-content: center; }
+        .container { width: 100%; max-width: 1100px; background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); }
+        header { border-bottom: 2px solid #008080; margin-bottom: 30px; padding-bottom: 10px; display: flex; justify-content: space-between; align-items: center; }
+        h1 { color: #008080; margin: 0; font-size: 24px; }
+        .live-indicator { color: #e53e3e; font-weight: bold; font-size: 14px; display: flex; align-items: center; }
+        .dot { height: 8px; width: 8px; background-color: #e53e3e; border-radius: 50%; display: inline-block; margin-right: 8px; animation: blink 1s infinite; }
+        @keyframes blink { 0% { opacity: 1; } 50% { opacity: 0.3; } 100% { opacity: 1; } }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th { background-color: #008080; color: white; padding: 15px; text-align: left; }
+        td { padding: 15px; border-bottom: 1px solid #edf2f7; color: #4a5568; }
+        tr:hover { background-color: #f8fafc; }
+        .badge { padding: 6px 14px; border-radius: 99px; font-size: 12px; font-weight: bold; text-transform: uppercase; display: inline-block; min-width: 80px; text-align: center; }
+        .empty-msg { text-align: center; padding: 40px; color: #a0aec0; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <h1>Smart Attendance Beacon System (SABS)</h1>
+        <div class="live-indicator">
+            <span class="dot"></span> LIVE DASHBOARD
+        </div>
+    </header>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Student ID</th>
+                <th>Full Name</th>
+                <th>Date</th>
+                <th>Check-in Time</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+        <tbody id="attendance-list">
+            <tr>
+                <td colspan="5" class="empty-msg">Waiting for connection...</td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+
+<script>
+    async function fetchData() {
+        try {
+            const response = await fetch('http://127.0.0.1:8000/data');
+            const data = await response.json();
+            
+            const list = document.getElementById('attendance-list');
+            list.innerHTML = ''; 
+
+            if (data.length === 0) {
+                list.innerHTML = '<tr><td colspan="5" class="empty-msg">No records found in Excel.</td></tr>';
+                return;
+            }
+
+            data.forEach(student => {
+                const timeValue = String(student['time'] || student['Time'] || '').trim();
+                
+                // NEW LOGIC: Only mark as Present if time is NOT empty and NOT "Not Present"
+                const isPresent = timeValue !== '' && 
+                                  timeValue.toLowerCase() !== 'not present' && 
+                                  timeValue.toLowerCase() !== 'nan' && 
+                                  timeValue !== '---';
+
+                const row = `
+                    <tr>
+                        <td><strong>${student['student_id'] || student['Student ID'] || 'N/A'}</strong></td>
+                        <td>${student['name'] || student['Name'] || 'Unknown'}</td>
+                        <td>${isPresent ? (student['date'] || student['Date'] || '---') : '---'}</td>
+                        <td>${isPresent ? timeValue : 'Not Present'}</td>
+                        <td>
+                            <span class="badge" style="background-color: ${isPresent ? '#c6f6d5' : '#fed7d7'}; color: ${isPresent ? '#22543d' : '#822727'};">
+                                ${isPresent ? 'PRESENT' : 'ABSENT'}
+                            </span>
+                        </td>
+                    </tr>
+                `;
+                list.innerHTML += row;
+            });
+        } catch (error) {
+            console.error("Connection Error:", error);
+        }
+    }
+
+    setInterval(fetchData, 2000);
+    fetchData();
+</script>
+</body>
+</html>
